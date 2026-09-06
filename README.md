@@ -59,7 +59,11 @@ To make HinkMD the default application for Markdown documents:
 | --- | --- |
 | `Command-O` | Open a Markdown file in the current window |
 | `Command-S` | Save the current document |
+| `Command-Plus` / `Command-Minus` | Increase / decrease UI text size |
+| `Command-0` | Reset text size to 100% |
 | `Tab` | Insert two spaces in the editor |
+
+Use the **Text size** controls at the bottom of the window to zoom from 75% to 200%. The setting is remembered between launches and does not change your Markdown files.
 
 ## Development
 
@@ -81,6 +85,15 @@ Build only the web frontend:
 
 ```sh
 npm run build
+```
+
+If a build fails after moving the project and references the old directory (for
+example, `failed to read plugin permissions`), clear Rust's generated build
+artifacts and rebuild from the project root:
+
+```sh
+cargo clean --manifest-path src-tauri/Cargo.toml
+npm run tauri build
 ```
 
 Check the Rust application:

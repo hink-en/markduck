@@ -34,6 +34,32 @@ themeButton.addEventListener("click", () => {
   setTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light");
 });
 
+const zoomOut = document.querySelector("#zoom-out");
+const zoomIn = document.querySelector("#zoom-in");
+const zoomReset = document.querySelector("#zoom-reset");
+let zoom = 100;
+
+function setZoom(value) {
+  const progress = scrollProgress(editor);
+  zoom = Math.max(75, Math.min(200, Math.round(value / 5) * 5));
+  document.documentElement.style.setProperty("--text-scale", zoom / 100);
+  zoomReset.textContent = `${zoom}%`;
+  zoomReset.setAttribute("aria-label", `Zoom ${zoom}%. Reset to 100%`);
+  zoomOut.disabled = zoom <= 75;
+  zoomIn.disabled = zoom >= 200;
+  localStorage.setItem("hinkmd-zoom", String(zoom));
+  requestAnimationFrame(() => {
+    scrollToProgress(editor, progress);
+    scrollToProgress(preview, progress);
+  });
+}
+
+const storedZoom = Number(localStorage.getItem("hinkmd-zoom"));
+setZoom(Number.isFinite(storedZoom) && storedZoom > 0 ? storedZoom : 100);
+zoomOut.addEventListener("click", () => setZoom(zoom - 10));
+zoomIn.addEventListener("click", () => setZoom(zoom + 10));
+zoomReset.addEventListener("click", () => setZoom(100));
+
 function showToast(message, type = "success") {
   toast.textContent = message;
   toast.className = `visible ${type}`;
@@ -210,7 +236,12 @@ document.querySelector("#open-button").addEventListener("click", () => openDocum
 document.querySelector("#save-button").addEventListener("click", saveDocument);
 
 document.addEventListener("keydown", (event) => {
-  if (!(event.metaKey || event.ctrlKey)) return;
+  if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
+  if (["+", "=", "-", "0"].includes(event.key)) {
+    event.preventDefault();
+    setZoom(event.key === "0" ? 100 : zoom + (event.key === "-" ? -10 : 10));
+    return;
+  }
   if (event.key.toLowerCase() === "s") {
     event.preventDefault();
     saveDocument();
