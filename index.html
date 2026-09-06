@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0c0d10" />
-    <title>HinkMD</title>
+    <title>Markduck</title>
   </head>
   <body>
     <div id="app">
@@ -31,6 +31,37 @@
         </nav>
       </header>
 
+      <nav id="formatting-bar" class="formatting-bar" aria-label="Markdown formatting" hidden>
+        <button data-format="bold" title="Bold (⌘B)"><strong>Bold</strong></button>
+        <button data-format="italic" title="Italic (⌘I)"><em>Italic</em></button>
+        <button data-format="heading" title="Make selected lines headings">Heading</button>
+        <button data-format="link" title="Insert a link (⌘K)">Link</button>
+        <button data-format="list" title="Make a bullet list">• List</button>
+        <button data-format="numbered" title="Make a numbered list">1. List</button>
+        <button data-format="checkbox" title="Make a checklist">☐ Checklist</button>
+        <button data-format="quote" title="Make a quotation">Quote</button>
+        <button data-format="code" title="Insert a code block">Code</button>
+        <button data-format="table" title="Insert a table">Table</button>
+        <button id="markdown-help-button" aria-haspopup="dialog">Markdown help</button>
+      </nav>
+
+      <dialog id="markdown-help" aria-labelledby="help-title">
+        <form method="dialog"><button aria-label="Close Markdown help" autofocus>Close</button></form>
+        <h2 id="help-title">A little Markdown help</h2>
+        <p>Select text, then choose a toolbar button. Without a selection, buttons insert an example or format the current line. Replace the selected example with your own words.</p>
+        <dl>
+          <dt>Headings</dt><dd><code># Title<br>## Section<br>### Subsection</code></dd>
+          <dt>Bold and italic</dt><dd><code>**bold text**<br>*italic text*</code></dd>
+          <dt>Links</dt><dd><code>[link text](https://example.com)</code><p>The words go in brackets; the address goes in parentheses.</p></dd>
+          <dt>Lists</dt><dd><code>- First item<br>- Second item</code><p>Use <code>1.</code> and <code>2.</code> for numbered lists.</p></dd>
+          <dt>Checklists</dt><dd><code>- [ ] To do<br>- [x] Done</code></dd>
+          <dt>Quotes</dt><dd><code>&gt; A quotation</code></dd>
+          <dt>Code</dt><dd><code>`inline code`<br><br>```<br>A block of code<br>```</code></dd>
+          <dt>Tables</dt><dd><code>| Name | Value |<br>| --- | --- |<br>| Example | 42 |</code><p>Keep the separator row beneath your column headings.</p></dd>
+        </dl>
+        <p>Leave a blank line between paragraphs. Watch the preview as you type. Use ⌘B for bold, ⌘I for italic, and ⌘K for links.</p>
+      </dialog>
+
       <main class="workspace">
         <section class="pane editor-pane" aria-label="Markdown editor">
           <div class="pane-header">
@@ -49,7 +80,8 @@
         </section>
       </main>
 
-      <footer class="zoom-bar" aria-label="Text zoom">
+      <footer class="zoom-bar" aria-label="Editor controls">
+        <button id="formatting-toggle" aria-controls="formatting-bar" aria-expanded="false" title="Show formatting toolbar">Formatting</button>
         <span>Text size</span>
         <button id="zoom-out" aria-label="Zoom out" title="Zoom out (⌘−)">−</button>
         <button id="zoom-reset" title="Reset zoom (⌘0)">100%</button>

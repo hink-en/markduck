@@ -1,0 +1,4 @@
+Generated with the built-in image_gen tool.
+Source asset: ../app-icon.png
+
+Use case: logo-brand. Create a polished square macOS app icon for Markduck, a friendly minimalist Markdown writing app. One charming stylized duck with a clear rounded silhouette, small eye, confident orange bill, cream body and a simple folded wing suggesting a sheet of paper. Dark charcoal rounded-square tile, subtle depth, restrained lime accent matching a dark writing editor. Clean bold vector-like shapes, playful but professional, legible at 32 pixels. Centered icon with generous margins, transparent outside the rounded tile, no lettering, no watermark, no extra objects. 1024x1024.

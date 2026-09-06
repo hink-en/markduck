@@ -1,6 +1,8 @@
-# HinkMD
+# Markduck
 
-HinkMD is a focused Markdown editor for macOS, built with Rust and Tauri. It combines a distraction-free source editor with a live rendered preview in a compact native desktop application.
+<img src="app-icon.png" alt="Markduck duck logo" width="160">
+
+Markduck is a focused Markdown editor for macOS, built with Rust and Tauri. It combines a distraction-free source editor with a live rendered preview in a compact native desktop application.
 
 ## Features
 
@@ -8,7 +10,6 @@ HinkMD is a focused Markdown editor for macOS, built with Rust and Tauri. It com
 - GitHub Flavored Markdown, including tables and task lists
 - Sanitized preview output
 - Synchronized editor and preview scrolling
-- Click-to-navigate from a preview block to its Markdown source
 - Native macOS open and save dialogs
 - Finder integration for `.md`, `.markdown`, `.mdown`, and `.mkd` files
 - Separate windows when additional Markdown files are opened from Finder
@@ -17,15 +18,19 @@ HinkMD is a focused Markdown editor for macOS, built with Rust and Tauri. It com
 - Unsaved-change indicator
 - Native macOS title bar, window dragging, and application icon
 
-## Using HinkMD
+## Using Markduck
 
 Use **Open** or `Command-O` to load a Markdown document into the current window. Use **Save** or `Command-S` to save changes. A new document prompts for a destination the first time it is saved.
 
-Scrolling or moving the caret in the editor keeps the related preview content in view. Clicking rendered content in the preview moves the editor caret to the corresponding source location.
+Closing a window or quitting with unsaved changes shows a warning. Choose
+**Cancel** to return and save, or explicitly close/quit without saving. Quitting
+checks all open document windows.
 
-The sun/moon button in the title bar switches between light and dark themes. HinkMD stores the selected theme locally and restores it at the next launch.
+Scrolling either pane moves the other to the same relative position. Editing or moving the caret in the Markdown editor keeps the related preview content in view. You can select text and click links in the preview without moving the editor caret.
 
-Opening another Markdown file from Finder creates a separate HinkMD window. macOS may suppress a second request for a file that is already open.
+The sun/moon button in the title bar switches between light and dark themes. Markduck stores the selected theme locally and restores it at the next launch.
+
+Opening another Markdown file from Finder creates a separate Markduck window. macOS may suppress a second request for a file that is already open.
 
 ## Install
 
@@ -38,18 +43,34 @@ npm run tauri build
 
 The generated packages are located at:
 
-- Application: `src-tauri/target/release/bundle/macos/HinkMD.app`
-- Disk image: `src-tauri/target/release/bundle/dmg/HinkMD_<version>_aarch64.dmg`
+- Application: `src-tauri/target/release/bundle/macos/Markduck.app`
+- Disk image: `src-tauri/target/release/bundle/dmg/Markduck_<version>_aarch64.dmg`
 
-Open the DMG and drag **HinkMD** into the Applications folder.
+Open the DMG and drag **Markduck** into the Applications folder.
+
+## Writing with Markdown
+
+Click **Formatting** at the bottom left to show or hide the toolbar. It starts
+hidden and remembers your preference between launches. Formatting shortcuts
+work even when the toolbar is hidden.
+
+Select text and use the formatting toolbar for bold, italic, headings, links,
+lists, checklists, quotes, or code. With no selection, it inserts editable example
+text or formats the current line. The Table button inserts a starter table.
+Changes appear immediately in the preview. Use **Markdown help** for a short
+cheat sheet, and press Escape or Close to dismiss it.
+
+While editing, use `Command-B` for bold, `Command-I` for italic, and `Command-K`
+for a link. For links on selected text, the example URL is selected so you can
+replace it with the real address.
 
 ## Set As Default
 
-To make HinkMD the default application for Markdown documents:
+To make Markduck the default application for Markdown documents:
 
 1. Select an `.md` file in Finder.
 2. Press `Command-I` to open **Get Info**.
-3. Expand **Open with** and select **HinkMD**.
+3. Expand **Open with** and select **Markduck**.
 4. Click **Change All**.
 5. Confirm the change when macOS prompts you.
 
@@ -111,3 +132,14 @@ cargo test
 - `index.html`: Application window structure and controls
 
 Markdown rendering uses `marked`, and generated HTML is sanitized with `DOMPurify` before being inserted into the preview. Tauri handles native macOS integration and packages the application as an `.app` and DMG.
+
+## App icon
+
+The duck logo source is `app-icon.png`. Regenerate the platform icons with:
+
+```sh
+npm run tauri icon app-icon.png
+```
+
+The app keeps its original bundle identifier and preference keys so existing
+installations retain their settings after the rename.

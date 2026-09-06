@@ -1526,16 +1526,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
-name = "hinkmd"
-version = "0.1.4"
-dependencies = [
- "rfd",
- "serde",
- "tauri",
- "tauri-build",
-]
-
-[[package]]
 name = "html5ever"
 version = "0.38.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2073,6 +2063,16 @@ name = "log"
 version = "0.4.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
+
+[[package]]
+name = "markduck"
+version = "0.1.4"
+dependencies = [
+ "rfd",
+ "serde",
+ "tauri",
+ "tauri-build",
+]
 
 [[package]]
 name = "markup5ever"

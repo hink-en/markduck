@@ -1,6 +1,6 @@
 use serde::Serialize;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     path::PathBuf,
     sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -12,9 +12,50 @@ use tauri::Manager;
 #[derive(Default)]
 struct DocumentWindows {
     pending_launch: Mutex<Vec<String>>,
+    unsaved: Mutex<HashSet<String>>,
     assignments: Mutex<HashMap<String, String>>,
     ready: AtomicBool,
     next_id: AtomicUsize,
+}
+
+#[tauri::command]
+fn set_document_dirty(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, DocumentWindows>,
+    dirty: bool,
+) {
+    let mut unsaved = state
+        .unsaved
+        .lock()
+        .expect("unsaved document lock poisoned");
+    if dirty {
+        unsaved.insert(window.label().to_owned());
+    } else {
+        unsaved.remove(window.label());
+    }
+}
+
+fn confirm_discard(quitting: bool) -> bool {
+    let action = if quitting {
+        "Quit Without Saving"
+    } else {
+        "Close Without Saving"
+    };
+    let description = if quitting {
+        "You have unsaved changes in one or more documents. Quitting will discard them. Cancel to return to the editor and save your work."
+    } else {
+        "This document has unsaved changes. Closing it will discard them. Cancel to return to the editor and save your work."
+    };
+    rfd::MessageDialog::new()
+        .set_title("Unsaved changes")
+        .set_description(description)
+        .set_level(rfd::MessageLevel::Warning)
+        .set_buttons(rfd::MessageButtons::OkCancelCustom(
+            "Cancel".into(),
+            action.into(),
+        ))
+        .show()
+        == rfd::MessageDialogResult::Custom(action.into())
 }
 
 #[derive(Serialize)]
@@ -35,8 +76,8 @@ fn markdown_path(path: PathBuf) -> Result<PathBuf, String> {
 
 fn load_document(path: PathBuf) -> Result<Document, String> {
     let path = markdown_path(path)?;
-    let content = std::fs::read_to_string(&path)
-        .map_err(|error| format!("Could not open file: {error}"))?;
+    let content =
+        std::fs::read_to_string(&path).map_err(|error| format!("Could not open file: {error}"))?;
     let name = path
         .file_name()
         .and_then(|value| value.to_str())
@@ -95,10 +136,7 @@ fn take_window_file(
 
 fn create_document_window(handle: &tauri::AppHandle, path: String) -> tauri::Result<()> {
     let state = handle.state::<DocumentWindows>();
-    let label = format!(
-        "document-{}",
-        state.next_id.fetch_add(1, Ordering::Relaxed)
-    );
+    let label = format!("document-{}", state.next_id.fetch_add(1, Ordering::Relaxed));
     state
         .assignments
         .lock()
@@ -125,7 +163,8 @@ pub fn run() {
             read_file,
             pick_file,
             save_file,
-            take_window_file
+            take_window_file,
+            set_document_dirty
         ])
         .setup(|app| {
             #[cfg(target_os = "macos")]
@@ -162,9 +201,57 @@ pub fn run() {
             Ok(())
         })
         .build(tauri::generate_context!())
-        .expect("error while building HinkMD");
+        .expect("error while building Markduck");
 
     app.run(|handle, event| {
+        match &event {
+            tauri::RunEvent::ExitRequested { api, .. } => {
+                let dirty = !handle
+                    .state::<DocumentWindows>()
+                    .unsaved
+                    .lock()
+                    .expect("unsaved document lock poisoned")
+                    .is_empty();
+                if dirty && !confirm_discard(true) {
+                    api.prevent_exit();
+                }
+            }
+            tauri::RunEvent::WindowEvent {
+                label,
+                event: tauri::WindowEvent::CloseRequested { api, .. },
+                ..
+            } => {
+                let state = handle.state::<DocumentWindows>();
+                let dirty = state
+                    .unsaved
+                    .lock()
+                    .expect("unsaved document lock poisoned")
+                    .contains(label);
+                if dirty && !confirm_discard(false) {
+                    api.prevent_close();
+                } else {
+                    state
+                        .unsaved
+                        .lock()
+                        .expect("unsaved document lock poisoned")
+                        .remove(label);
+                }
+            }
+            tauri::RunEvent::WindowEvent {
+                label,
+                event: tauri::WindowEvent::Destroyed,
+                ..
+            } => {
+                handle
+                    .state::<DocumentWindows>()
+                    .unsaved
+                    .lock()
+                    .expect("unsaved document lock poisoned")
+                    .remove(label);
+            }
+            _ => {}
+        }
+
         if let tauri::RunEvent::Opened { urls } = event {
             let paths = urls
                 .into_iter()

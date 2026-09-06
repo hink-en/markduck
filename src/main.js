@@ -1,4 +1,5 @@
 import "./styles.css";
+import { formatMarkdown } from "./formatting.js";
 import { invoke } from "@tauri-apps/api/core";
 import DOMPurify from "dompurify";
 import { marked } from "marked";
@@ -16,6 +17,9 @@ let currentPath = null;
 let savedContent = "";
 let toastTimer;
 let syncFrame;
+const programmaticScrolls = new WeakMap();
+let reportedDirty;
+let dirtyStateQueue = Promise.resolve();
 
 marked.setOptions({ gfm: true, breaks: true });
 
@@ -33,6 +37,19 @@ setTheme(localStorage.getItem("hinkmd-theme") === "light" ? "light" : "dark");
 themeButton.addEventListener("click", () => {
   setTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light");
 });
+
+const formattingToggle = document.querySelector("#formatting-toggle");
+const formattingBar = document.querySelector("#formatting-bar");
+
+function setFormattingVisible(visible) {
+  formattingBar.hidden = !visible;
+  formattingToggle.setAttribute("aria-expanded", String(visible));
+  formattingToggle.title = `${visible ? "Hide" : "Show"} formatting toolbar`;
+  localStorage.setItem("hinkmd-formatting-visible", String(visible));
+}
+
+setFormattingVisible(localStorage.getItem("hinkmd-formatting-visible") === "true");
+formattingToggle.addEventListener("click", () => setFormattingVisible(formattingBar.hidden));
 
 const zoomOut = document.querySelector("#zoom-out");
 const zoomIn = document.querySelector("#zoom-in");
@@ -92,8 +109,18 @@ function updateDocument() {
   const words = content.trim() ? content.trim().split(/\s+/).length : 0;
   const readingTime = Math.max(1, Math.ceil(words / 220));
   stats.textContent = `${words} ${words === 1 ? "word" : "words"} · ${readingTime} min read`;
-  dirtyDot.classList.toggle("visible", content !== savedContent);
-  document.title = `${content !== savedContent ? "• " : ""}${fileName.textContent} — HinkMD`;
+  const dirty = content !== savedContent;
+  dirtyDot.classList.toggle("visible", dirty);
+  if (dirty !== reportedDirty) {
+    reportedDirty = dirty;
+    // Keep native close/quit protection in sync, including saves and undo.
+    dirtyStateQueue = dirtyStateQueue.then(() => invoke("set_document_dirty", { dirty }))
+      .catch((error) => {
+        reportedDirty = undefined;
+        showToast(`Could not update unsaved-changes protection: ${error}`, "error");
+      });
+  }
+  document.title = `${content !== savedContent ? "• " : ""}${fileName.textContent} — Markduck`;
 }
 
 function scrollProgress(element) {
@@ -101,19 +128,30 @@ function scrollProgress(element) {
   return range > 0 ? element.scrollTop / range : 0;
 }
 
-function scrollToProgress(element, progress, behavior = "auto") {
-  const range = element.scrollHeight - element.clientHeight;
-  element.scrollTo({ top: Math.max(0, range * progress), behavior });
+function scrollPaneTo(element, top) {
+  const limit = Math.max(0, element.scrollHeight - element.clientHeight);
+  element.scrollTo({ top: Math.max(0, Math.min(limit, top)), behavior: "instant" });
+  // Ignore the resulting scroll event so the other pane does not bounce back.
+  programmaticScrolls.set(element, element.scrollTop);
 }
 
-function syncPreviewToEditor() {
+function scrollToProgress(element, progress) {
+  const range = element.scrollHeight - element.clientHeight;
+  scrollPaneTo(element, Math.max(0, range * progress));
+}
+
+function syncPaneScroll(source, target) {
+  const expected = programmaticScrolls.get(source);
+  programmaticScrolls.delete(source);
+  if (expected !== undefined && Math.abs(source.scrollTop - expected) < 1) return;
   cancelAnimationFrame(syncFrame);
   syncFrame = requestAnimationFrame(() => {
-    scrollToProgress(preview, scrollProgress(editor));
+    scrollToProgress(target, scrollProgress(source));
   });
 }
 
 function syncPreviewToCaret() {
+  cancelAnimationFrame(syncFrame);
   const contentBeforeCaret = editor.value.slice(0, editor.selectionStart);
   const line = contentBeforeCaret.split("\n").length - 1;
   const lineCount = Math.max(1, editor.value.split("\n").length - 1);
@@ -135,47 +173,8 @@ function syncPreviewToCaret() {
   const focusY = preview.clientHeight / 3;
   // Keep the active source around the upper third, while avoiding tiny shifts.
   if (viewportY < preview.clientHeight * 0.16 || viewportY > preview.clientHeight * 0.52) {
-    preview.scrollTo({ top: Math.max(0, targetY - focusY), behavior: "smooth" });
+    scrollPaneTo(preview, targetY - focusY);
   }
-}
-
-function jumpEditorToPreviewPosition(event) {
-  if (!preview.textContent.trim()) return;
-  event.preventDefault();
-
-  const lines = editor.value.split("\n");
-  const block = event.target.closest("[data-source-start]");
-  let targetLine;
-
-  if (block) {
-    const bounds = block.getBoundingClientRect();
-    const withinBlock = bounds.height > 0
-      ? Math.max(0, Math.min(1, (event.clientY - bounds.top) / bounds.height))
-      : 0;
-    const start = Number(block.dataset.sourceStart);
-    const end = Number(block.dataset.sourceEnd);
-    targetLine = Math.round(start + (end - start) * withinBlock);
-  } else {
-    const bounds = preview.getBoundingClientRect();
-    const documentY = preview.scrollTop + event.clientY - bounds.top;
-    const progress = Math.max(0, Math.min(1, documentY / preview.scrollHeight));
-    targetLine = Math.round(progress * (lines.length - 1));
-  }
-
-  targetLine = Math.min(lines.length - 1, targetLine);
-  const progress = targetLine / Math.max(1, lines.length - 1);
-  let position = 0;
-  for (let index = 0; index < targetLine; index += 1) {
-    position += lines[index].length + 1;
-  }
-
-  editor.focus();
-  editor.setSelectionRange(position, position);
-  const editorRange = editor.scrollHeight - editor.clientHeight;
-  editor.scrollTo({
-    top: Math.max(0, editorRange * progress),
-    behavior: "smooth",
-  });
 }
 
 function loadDocument(document) {
@@ -207,7 +206,7 @@ async function saveDocument() {
     if (!result) return;
     currentPath = result.path;
     fileName.textContent = result.name;
-    savedContent = editor.value;
+    savedContent = result.content;
     updateDocument();
     showToast("Saved");
   } catch (error) {
@@ -219,10 +218,10 @@ editor.addEventListener("input", () => {
   updateDocument();
   syncPreviewToCaret();
 });
-editor.addEventListener("scroll", syncPreviewToEditor, { passive: true });
+editor.addEventListener("scroll", () => syncPaneScroll(editor, preview), { passive: true });
+preview.addEventListener("scroll", () => syncPaneScroll(preview, editor), { passive: true });
 editor.addEventListener("click", syncPreviewToCaret);
 editor.addEventListener("keyup", syncPreviewToCaret);
-preview.addEventListener("click", jumpEditorToPreviewPosition);
 editor.addEventListener("keydown", (event) => {
   if (event.key === "Tab") {
     event.preventDefault();
@@ -232,11 +231,38 @@ editor.addEventListener("keydown", (event) => {
   }
 });
 
+function applyFormatting(action) {
+  const edit = formatMarkdown(editor.value, editor.selectionStart, editor.selectionEnd, action);
+  editor.focus();
+  editor.setSelectionRange(edit.start, edit.end);
+  // Native insertion keeps toolbar edits in the textarea's undo history.
+  if (!document.execCommand("insertText", false, edit.text)) {
+    editor.setRangeText(edit.text, edit.start, edit.end, "end");
+  }
+  editor.setSelectionRange(edit.start + edit.selectStart, edit.start + edit.selectEnd);
+  updateDocument();
+  syncPreviewToCaret();
+}
+
+document.querySelectorAll("[data-format]").forEach((button) => {
+  button.addEventListener("mousedown", (event) => event.preventDefault());
+  button.addEventListener("click", () => applyFormatting(button.dataset.format));
+});
+const markdownHelp = document.querySelector("#markdown-help");
+document.querySelector("#markdown-help-button").addEventListener("click", () => markdownHelp.showModal());
+
 document.querySelector("#open-button").addEventListener("click", () => openDocument());
 document.querySelector("#save-button").addEventListener("click", saveDocument);
 
 document.addEventListener("keydown", (event) => {
   if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
+  if (markdownHelp.open) return;
+  const format = { b: "bold", i: "italic", k: "link" }[event.key.toLowerCase()];
+  if (format && document.activeElement === editor) {
+    event.preventDefault();
+    applyFormatting(format);
+    return;
+  }
   if (["+", "=", "-", "0"].includes(event.key)) {
     event.preventDefault();
     setZoom(event.key === "0" ? 100 : zoom + (event.key === "-" ? -10 : 10));

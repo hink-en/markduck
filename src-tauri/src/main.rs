@@ -1,3 +1,3 @@
 fn main() {
-    hinkmd_lib::run();
+    markduck_lib::run();
 }
