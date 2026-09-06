@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0c0d10" />
+    <title>HinkMD</title>
+  </head>
+  <body>
+    <div id="app">
+      <header class="titlebar" data-tauri-drag-region>
+        <div class="drag-strip" data-tauri-drag-region aria-hidden="true"></div>
+        <div class="traffic-space" data-tauri-drag-region></div>
+        <div class="document-title" data-tauri-drag-region>
+          <span id="dirty-dot" aria-hidden="true"></span>
+          <span id="file-name">Untitled</span>
+        </div>
+        <nav class="actions" aria-label="Document actions">
+          <button id="theme-button" class="icon-button" title="Switch to light theme" aria-label="Switch to light theme" aria-pressed="false">
+            <svg class="sun-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"/><path d="M12 2.5v2m0 15v2m9.5-9.5h-2m-15 0h-2m16.2-6.7-1.4 1.4M6.7 17.3l-1.4 1.4m13.4 0-1.4-1.4M6.7 6.7 5.3 5.3"/></svg>
+            <svg class="moon-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15.4A8.3 8.3 0 0 1 8.6 4a8.3 8.3 0 1 0 11.4 11.4Z"/></svg>
+          </button>
+          <button id="open-button" title="Open Markdown (⌘O)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 18.5 5.6 9h13.8l-2.1 9.5H3.5Zm2.7-12h4l1.7 2.5H19V7.5a1 1 0 0 0-1-1h-6l-1.7-2.2H7.2a1 1 0 0 0-1 1v1.2Z"/></svg>
+            Open
+          </button>
+          <button id="save-button" class="primary" title="Save (⌘S)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h12l2 2v13H5v-15Zm3 0v5h7v-5m-7 15v-6h8v6"/></svg>
+            Save
+          </button>
+        </nav>
+      </header>
+
+      <main class="workspace">
+        <section class="pane editor-pane" aria-label="Markdown editor">
+          <div class="pane-header">
+            <span>MARKDOWN</span>
+            <span id="document-stats">0 words</span>
+          </div>
+          <textarea id="editor" autofocus spellcheck="true" aria-label="Markdown text" placeholder="# Start writing…"></textarea>
+        </section>
+        <div class="divider" aria-hidden="true"></div>
+        <section class="pane preview-pane" aria-label="Markdown preview">
+          <div class="pane-header">
+            <span>PREVIEW</span>
+            <span class="live-indicator"><i></i> LIVE</span>
+          </div>
+          <article id="preview" class="markdown-body"></article>
+        </section>
+      </main>
+
+      <div id="toast" role="status" aria-live="polite"></div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
