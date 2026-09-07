@@ -34,6 +34,12 @@ Opening another Markdown file from Finder creates a separate Markduck window. ma
 
 ## Install
 
+Download the universal macOS DMG from [GitHub Releases](https://github.com/hink-en/markduck/releases/latest). It supports both Apple Silicon and Intel Macs. Open the DMG and drag **Markduck** into Applications.
+
+Release builds are not Developer ID signed or notarized by Apple, so macOS may block opening the downloaded app.
+
+### Build from source
+
 Build the application:
 
 ```sh
@@ -124,6 +130,29 @@ cd src-tauri
 cargo check
 cargo test
 ```
+
+## Publishing a release
+
+The [macOS release workflow](.github/workflows/release.yml) builds a universal app
+and publishes a GitHub Release when a `v*` tag is pushed. It uploads a DMG and a
+zipped `.app` after the build succeeds. Tags containing a hyphen (such as
+`v0.2.0-beta.1`) are published as prereleases.
+
+1. Set the same version in `package.json`, `src-tauri/tauri.conf.json`, and
+   `src-tauri/Cargo.toml`. Refresh and commit both lockfiles along with those changes
+   (`npm install --package-lock-only` and `cargo check --manifest-path src-tauri/Cargo.toml`).
+2. Commit and push the release changes, including the workflow.
+3. Tag that commit with the matching version and push the tag:
+
+   ```sh
+   git tag v0.1.4
+   git push origin v0.1.4
+   ```
+
+Use your new version in place of `v0.1.4`. The workflow uses GitHub's built-in
+token; no additional repository secrets are needed. Rerunning a successful
+release replaces its uploaded assets. Apple signing and notarization are not
+configured in this workflow.
 
 ## Architecture
 
