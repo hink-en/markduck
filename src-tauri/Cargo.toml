@@ -1,6 +1,6 @@
 [package]
 name = "markduck"
-version = "0.1.5"
+version = "0.1.6"
 description = "A focused Markdown editor for macOS"
 authors = ["Markduck"]
 edition = "2021"
