@@ -38,6 +38,116 @@ themeButton.addEventListener("click", () => {
   setTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light");
 });
 
+const sidebarToggle = document.querySelector("#sidebar-toggle-button");
+const fileTreePanel = document.querySelector("#file-tree-panel");
+const fileTreeTitle = document.querySelector("#file-tree-title");
+const fileTree = document.querySelector("#file-tree");
+const openFolderButton = document.querySelector("#open-folder-button");
+
+function setSidebarVisible(visible) {
+  fileTreePanel.hidden = !visible;
+  sidebarToggle.setAttribute("aria-pressed", String(visible));
+  const label = `${visible ? "Hide" : "Show"} file panel`;
+  sidebarToggle.title = label;
+  sidebarToggle.setAttribute("aria-label", label);
+  localStorage.setItem("hinkmd-sidebar-visible", String(visible));
+}
+
+setSidebarVisible(localStorage.getItem("hinkmd-sidebar-visible") === "true");
+sidebarToggle.addEventListener("click", () => setSidebarVisible(fileTreePanel.hidden));
+
+function highlightActiveFile() {
+  fileTree.querySelectorAll(".tree-file-label").forEach((button) => {
+    button.classList.toggle("active", button.dataset.path === currentPath);
+  });
+}
+
+function renderTreeNodes(nodes) {
+  const list = document.createElement("ul");
+  list.setAttribute("role", "group");
+  for (const node of nodes) {
+    const item = document.createElement("li");
+    item.setAttribute("role", "treeitem");
+    if (node.isDir) {
+      item.className = "tree-folder";
+      item.setAttribute("aria-expanded", "true");
+      const label = document.createElement("button");
+      label.type = "button";
+      label.className = "tree-folder-label";
+      label.textContent = node.name;
+      label.addEventListener("click", () => {
+        item.setAttribute("aria-expanded", String(item.getAttribute("aria-expanded") !== "true"));
+      });
+      item.append(label, renderTreeNodes(node.children));
+    } else {
+      item.className = "tree-file";
+      const label = document.createElement("button");
+      label.type = "button";
+      label.className = "tree-file-label";
+      label.textContent = node.name;
+      label.title = node.path;
+      label.dataset.path = node.path;
+      label.addEventListener("click", () => openDocument(node.path));
+      item.appendChild(label);
+    }
+    list.appendChild(item);
+  }
+  return list;
+}
+
+function renderEmptyTreeState() {
+  fileTree.innerHTML = "";
+  const empty = document.createElement("div");
+  empty.className = "tree-empty";
+  const message = document.createElement("p");
+  message.textContent = "Open a folder to browse its Markdown files.";
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = "Open Folder";
+  button.addEventListener("click", () => openFolder());
+  empty.append(message, button);
+  fileTree.appendChild(empty);
+}
+
+function renderTree(tree) {
+  fileTreeTitle.textContent = tree.name;
+  fileTree.innerHTML = "";
+  if (!tree.children.length) {
+    const empty = document.createElement("p");
+    empty.className = "tree-empty";
+    empty.textContent = "No Markdown files found in this folder.";
+    fileTree.appendChild(empty);
+    return;
+  }
+  fileTree.appendChild(renderTreeNodes(tree.children));
+  highlightActiveFile();
+}
+
+async function loadFolderTree(path) {
+  const tree = await invoke("read_markdown_tree", { path });
+  localStorage.setItem("hinkmd-folder-path", path);
+  renderTree(tree);
+}
+
+async function openFolder() {
+  try {
+    const path = await invoke("pick_folder");
+    if (!path) return;
+    await loadFolderTree(path);
+    setSidebarVisible(true);
+  } catch (error) {
+    showToast(String(error), "error");
+  }
+}
+
+openFolderButton.addEventListener("click", () => openFolder());
+renderEmptyTreeState();
+
+const storedFolderPath = localStorage.getItem("hinkmd-folder-path");
+if (storedFolderPath) {
+  loadFolderTree(storedFolderPath).catch(() => localStorage.removeItem("hinkmd-folder-path"));
+}
+
 const formattingToggle = document.querySelector("#formatting-toggle");
 const formattingBar = document.querySelector("#formatting-bar");
 
@@ -201,6 +311,7 @@ function loadDocument(document) {
   clearTimeout(renderTimer);
   renderPreview(document.content);
   editor.focus();
+  highlightActiveFile();
 }
 
 async function openDocument(path = null) {
