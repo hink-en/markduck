@@ -61,12 +61,16 @@ Version is tracked in three places that must always match:
 
 1. [`auto-release.yml`](.github/workflows/auto-release.yml) ("Bump version
    and tag") — runs on every push to `main`. Bumps the patch version across
-   all five version-bearing files, commits with `[skip release]` in the
-   message (so it doesn't re-trigger itself), then creates and pushes a
-   `vX.Y.Z` tag. It authenticates with the `RELEASE_TOKEN` repo secret (a
-   PAT), **not** the default `GITHUB_TOKEN` — pushes made with
-   `GITHUB_TOKEN` cannot trigger other workflows, so the tag push would
-   otherwise never reach step 2.
+   all five version-bearing files, then opens a PR with that bump and
+   merges it immediately, since `main` has a repository ruleset requiring
+   changes via PR (it requires 0 approvals, so this stays fully automatic).
+   The bump commit message includes `[skip release]`, so the workflow
+   doesn't re-trigger itself when that merge lands. It then creates and
+   pushes a `vX.Y.Z` tag. It authenticates with the `RELEASE_TOKEN` repo
+   secret (a PAT with Contents and Pull requests write access), **not** the
+   default `GITHUB_TOKEN` — pushes/merges made with `GITHUB_TOKEN` cannot
+   trigger other workflows, so the tag push would otherwise never reach
+   step 2.
 2. [`release.yml`](.github/workflows/release.yml) ("Release macOS") — runs
    when a `v*` tag is pushed. Builds a universal macOS app/DMG and publishes
    a GitHub Release (prerelease if the tag has a hyphen, e.g. `-beta.1`).
