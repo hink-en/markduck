@@ -139,10 +139,12 @@ no manual version bump or tagging is needed.
 1. **[Bump version and tag](.github/workflows/auto-release.yml)** runs on every
    push to `main`. It increments the patch version (e.g. `0.1.6` → `0.1.7`) in
    `package.json`, `package-lock.json`, `src-tauri/tauri.conf.json`,
-   `src-tauri/Cargo.toml`, and `src-tauri/Cargo.lock`, commits that bump with
-   `[skip release]` in the message, then creates and pushes a matching `vX.Y.Z`
-   tag. The `[skip release]` marker stops this workflow from re-triggering on
-   its own bump commit.
+   `src-tauri/Cargo.toml`, and `src-tauri/Cargo.lock`, then opens a PR with
+   that bump and immediately merges it (main's ruleset only allows changes
+   through a PR, but requires 0 approvals, so this stays fully automatic).
+   It then creates and pushes a matching `vX.Y.Z` tag. The bump commit's
+   message includes `[skip release]`, which stops this workflow from
+   re-triggering on its own merge.
 2. **[Release macOS](.github/workflows/release.yml)** runs when a `v*` tag is
    pushed. It builds a universal macOS app and publishes a GitHub Release,
    uploading a DMG and a zipped `.app`. Tags containing a hyphen (such as
@@ -155,15 +157,20 @@ To skip a release for a given merge (e.g. a docs-only change), include
 
 ### One-time setup: `RELEASE_TOKEN` secret
 
-The bump-and-tag job pushes using a **personal access token** stored as the
-`RELEASE_TOKEN` repository secret, not the default `GITHUB_TOKEN`. This is
-required: pushes made with the default `GITHUB_TOKEN` are not allowed to
-trigger other workflow runs, so the pushed tag would never start the release
-workflow.
+The bump-and-tag job pushes and opens/merges its PR using a **personal
+access token** stored as the `RELEASE_TOKEN` repository secret, not the
+default `GITHUB_TOKEN`. This is required for two reasons:
+
+- Pushes made with the default `GITHUB_TOKEN` are not allowed to trigger
+  other workflow runs, so a tag pushed with it would never start the
+  release workflow.
+- `main` has a repository ruleset requiring changes to go through a pull
+  request, so the job needs permission to create and merge one.
 
 To set it up: create a fine-grained PAT scoped to this repository with
-**Contents: Read and write** permission, then add it under
-**Settings → Secrets and variables → Actions** as `RELEASE_TOKEN`.
+**Contents: Read and write** and **Pull requests: Read and write**
+permissions, then add it under **Settings → Secrets and variables →
+Actions** as `RELEASE_TOKEN`.
 
 ### Manual releases
 
