@@ -133,26 +133,44 @@ cargo test
 
 ## Publishing a release
 
-The [macOS release workflow](.github/workflows/release.yml) builds a universal app
-and publishes a GitHub Release when a `v*` tag is pushed. It uploads a DMG and a
-zipped `.app` after the build succeeds. Tags containing a hyphen (such as
-`v0.2.0-beta.1`) are published as prereleases.
+Releases are fully automated. Every merge to `main` publishes a new release —
+no manual version bump or tagging is needed.
 
-1. Set the same version in `package.json`, `src-tauri/tauri.conf.json`, and
-   `src-tauri/Cargo.toml`. Refresh and commit both lockfiles along with those changes
-   (`npm install --package-lock-only` and `cargo check --manifest-path src-tauri/Cargo.toml`).
-2. Commit and push the release changes, including the workflow.
-3. Tag that commit with the matching version and push the tag:
+1. **[Bump version and tag](.github/workflows/auto-release.yml)** runs on every
+   push to `main`. It increments the patch version (e.g. `0.1.6` → `0.1.7`) in
+   `package.json`, `package-lock.json`, `src-tauri/tauri.conf.json`,
+   `src-tauri/Cargo.toml`, and `src-tauri/Cargo.lock`, commits that bump with
+   `[skip release]` in the message, then creates and pushes a matching `vX.Y.Z`
+   tag. The `[skip release]` marker stops this workflow from re-triggering on
+   its own bump commit.
+2. **[Release macOS](.github/workflows/release.yml)** runs when a `v*` tag is
+   pushed. It builds a universal macOS app and publishes a GitHub Release,
+   uploading a DMG and a zipped `.app`. Tags containing a hyphen (such as
+   `v0.2.0-beta.1`) are published as prereleases. Rerunning a successful
+   release replaces its uploaded assets. Apple signing and notarization are
+   not configured.
 
-   ```sh
-   git tag v0.1.4
-   git push origin v0.1.4
-   ```
+To skip a release for a given merge (e.g. a docs-only change), include
+`[skip release]` in that commit's message yourself.
 
-Use your new version in place of `v0.1.4`. The workflow uses GitHub's built-in
-token; no additional repository secrets are needed. Rerunning a successful
-release replaces its uploaded assets. Apple signing and notarization are not
-configured in this workflow.
+### One-time setup: `RELEASE_TOKEN` secret
+
+The bump-and-tag job pushes using a **personal access token** stored as the
+`RELEASE_TOKEN` repository secret, not the default `GITHUB_TOKEN`. This is
+required: pushes made with the default `GITHUB_TOKEN` are not allowed to
+trigger other workflow runs, so the pushed tag would never start the release
+workflow.
+
+To set it up: create a fine-grained PAT scoped to this repository with
+**Contents: Read and write** permission, then add it under
+**Settings → Secrets and variables → Actions** as `RELEASE_TOKEN`.
+
+### Manual releases
+
+To cut a release without waiting for a merge, either push a `v*` tag by hand
+(same three version files must already match that tag), or run the
+"Bump version and tag" workflow manually via **Actions → Bump version and
+tag → Run workflow**.
 
 ## Architecture
 
