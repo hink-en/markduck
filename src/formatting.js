@@ -21,9 +21,15 @@ export function formatMarkdown(value, start, end, action) {
     const next = value.indexOf('\n', last);
     end = next === -1 ? value.length : next;
     const prefixes = { heading: '## ', list: '- ', checkbox: '- [ ] ', quote: '> ' };
-    const text = value.slice(start, end).split('\n').map((line, index) => {
-      const prefix = action === 'numbered' ? `${index + 1}. ` : prefixes[action];
-      return prefix + (line.replace(/^(?:#{1,6}\s+|[-*+]\s+(?:\[[ xX]\]\s+)?|\d+\.\s+|>\s?)/, '') || (action === 'heading' ? 'Heading' : 'List item'));
+    const lines = value.slice(start, end).split('\n');
+    const singleLine = lines.length === 1;
+    let itemNumber = 0;
+    const text = lines.map((line) => {
+      const stripped = line.replace(/^(?:#{1,6}\s+|[-*+]\s+(?:\[[ xX]\]\s+)?|\d+\.\s+|>\s?)/, '');
+      if (!stripped && !singleLine) return '';
+      itemNumber += 1;
+      const prefix = action === 'numbered' ? `${itemNumber}. ` : prefixes[action];
+      return prefix + (stripped || (action === 'heading' ? 'Heading' : 'List item'));
     }).join('\n');
     return { start, end, text, selectStart: 0, selectEnd: text.length };
   }

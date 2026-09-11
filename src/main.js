@@ -84,8 +84,10 @@ function showToast(message, type = "success") {
   toastTimer = setTimeout(() => (toast.className = ""), 2400);
 }
 
-function updateDocument() {
-  const content = editor.value;
+let renderTimer;
+const RENDER_DEBOUNCE_MS = 120;
+
+function renderPreview(content) {
   const tokens = marked.lexer(content);
   preview.innerHTML = DOMPurify.sanitize(marked.parser(tokens));
   const blocks = tokens.filter((token) => !["space", "def"].includes(token.type));
@@ -105,6 +107,11 @@ function updateDocument() {
     link.target = "_blank";
     link.rel = "noopener noreferrer";
   });
+  syncPreviewToCaret();
+}
+
+function updateDocument() {
+  const content = editor.value;
 
   const words = content.trim() ? content.trim().split(/\s+/).length : 0;
   const readingTime = Math.max(1, Math.ceil(words / 220));
@@ -120,7 +127,11 @@ function updateDocument() {
         showToast(`Could not update unsaved-changes protection: ${error}`, "error");
       });
   }
-  document.title = `${content !== savedContent ? "• " : ""}${fileName.textContent} — Markduck`;
+  document.title = `${dirty ? "• " : ""}${fileName.textContent} — Markduck`;
+
+  // Coalesce the expensive lex/parse/sanitize/DOM rebuild across rapid keystrokes.
+  clearTimeout(renderTimer);
+  renderTimer = setTimeout(() => renderPreview(content), RENDER_DEBOUNCE_MS);
 }
 
 function scrollProgress(element) {
@@ -181,13 +192,22 @@ function loadDocument(document) {
   currentPath = document.path;
   savedContent = document.content;
   editor.value = document.content;
+  // Setting .value moves the caret to the end; put it back at the top
+  // before rendering so the preview doesn't scroll to match it.
+  editor.setSelectionRange(0, 0);
+  editor.scrollTop = 0;
   fileName.textContent = document.name;
   updateDocument();
+  clearTimeout(renderTimer);
+  renderPreview(document.content);
   editor.focus();
 }
 
 async function openDocument(path = null) {
   try {
+    if (editor.value !== savedContent && !(await invoke("confirm_discard_for_open"))) {
+      return;
+    }
     const document = path
       ? await invoke("read_file", { path })
       : await invoke("pick_file");
