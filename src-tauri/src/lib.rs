@@ -35,16 +35,26 @@ fn set_document_dirty(
     }
 }
 
-fn confirm_discard(quitting: bool) -> bool {
-    let action = if quitting {
-        "Quit Without Saving"
-    } else {
-        "Close Without Saving"
-    };
-    let description = if quitting {
-        "You have unsaved changes in one or more documents. Quitting will discard them. Cancel to return to the editor and save your work."
-    } else {
-        "This document has unsaved changes. Closing it will discard them. Cancel to return to the editor and save your work."
+enum DiscardReason {
+    Quit,
+    Close,
+    Open,
+}
+
+fn confirm_discard(reason: DiscardReason) -> bool {
+    let (action, description) = match reason {
+        DiscardReason::Quit => (
+            "Quit Without Saving",
+            "You have unsaved changes in one or more documents. Quitting will discard them. Cancel to return to the editor and save your work.",
+        ),
+        DiscardReason::Close => (
+            "Close Without Saving",
+            "This document has unsaved changes. Closing it will discard them. Cancel to return to the editor and save your work.",
+        ),
+        DiscardReason::Open => (
+            "Open Without Saving",
+            "This document has unsaved changes. Opening another file will discard them. Cancel to return to the editor and save your work.",
+        ),
     };
     rfd::MessageDialog::new()
         .set_title("Unsaved changes")
@@ -123,6 +133,11 @@ fn save_file(path: Option<String>, content: String) -> Result<Option<Document>, 
 }
 
 #[tauri::command]
+fn confirm_discard_for_open() -> bool {
+    confirm_discard(DiscardReason::Open)
+}
+
+#[tauri::command]
 fn take_window_file(
     window: tauri::WebviewWindow,
     state: tauri::State<'_, DocumentWindows>,
@@ -164,7 +179,8 @@ pub fn run() {
             pick_file,
             save_file,
             take_window_file,
-            set_document_dirty
+            set_document_dirty,
+            confirm_discard_for_open
         ])
         .setup(|app| {
             #[cfg(target_os = "macos")]
@@ -212,7 +228,7 @@ pub fn run() {
                     .lock()
                     .expect("unsaved document lock poisoned")
                     .is_empty();
-                if dirty && !confirm_discard(true) {
+                if dirty && !confirm_discard(DiscardReason::Quit) {
                     api.prevent_exit();
                 }
             }
@@ -227,7 +243,7 @@ pub fn run() {
                     .lock()
                     .expect("unsaved document lock poisoned")
                     .contains(label);
-                if dirty && !confirm_discard(false) {
+                if dirty && !confirm_discard(DiscardReason::Close) {
                     api.prevent_close();
                 } else {
                     state
