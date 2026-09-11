@@ -1,0 +1,82 @@
+name: Bump version and tag
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: auto-release
+  cancel-in-progress: false
+
+jobs:
+  bump-and-tag:
+    if: "!contains(github.event.head_commit.message, '[skip release]')"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # A PAT (secrets.RELEASE_TOKEN) is required here, not the default
+          # GITHUB_TOKEN: pushes made with GITHUB_TOKEN are not allowed to
+          # trigger other workflow runs, so the tag pushed below would never
+          # start release.yml. See README "Publishing a release" for setup.
+          token: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: Bump patch version
+        id: bump
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          current = re.search(
+              r'"version": "(\d+\.\d+\.\d+)"', Path('package.json').read_text()
+          ).group(1)
+          major, minor, patch = (int(p) for p in current.split('.'))
+          new_version = f'{major}.{minor}.{patch + 1}'
+
+          def bump(path, pattern, count, flags=0):
+              path = Path(path)
+              text = path.read_text()
+              new_text, n = re.subn(
+                  pattern,
+                  lambda m: m.group(1) + new_version + m.group(2),
+                  text,
+                  count=count,
+                  flags=flags,
+              )
+              if n != count:
+                  raise SystemExit(f'{path}: expected {count} replacement(s), got {n}')
+              path.write_text(new_text)
+
+          quoted_version = r'("version": ")\d+\.\d+\.\d+(")'
+          bump('package.json', quoted_version, 1)
+          bump('package-lock.json', quoted_version, 2)
+          bump('src-tauri/tauri.conf.json', quoted_version, 1)
+          bump('src-tauri/Cargo.toml', r'(^version = ")\d+\.\d+\.\d+(")', 1, flags=re.MULTILINE)
+          bump(
+              'src-tauri/Cargo.lock',
+              r'(name = "markduck"\nversion = ")\d+\.\d+\.\d+(")',
+              1,
+          )
+
+          Path('NEW_VERSION').write_text(new_version)
+          PY
+          echo "version=$(cat NEW_VERSION)" >> "$GITHUB_OUTPUT"
+          rm NEW_VERSION
+
+      - name: Commit and tag
+        env:
+          NEW_VERSION: ${{ steps.bump.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock
+          git commit -m "Bump version to $NEW_VERSION [skip release]"
+          git tag "v$NEW_VERSION"
+          git push origin HEAD:main
+          git push origin "v$NEW_VERSION"
