@@ -16,9 +16,15 @@
           <span id="file-name">Untitled</span>
         </div>
         <nav class="actions" aria-label="Document actions">
+          <button id="sidebar-toggle-button" class="icon-button" title="Show file panel" aria-label="Show file panel" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2.2"/><path d="M9.5 4.5v15"/></svg>
+          </button>
           <button id="theme-button" class="icon-button" title="Switch to light theme" aria-label="Switch to light theme" aria-pressed="false">
             <svg class="sun-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"/><path d="M12 2.5v2m0 15v2m9.5-9.5h-2m-15 0h-2m16.2-6.7-1.4 1.4M6.7 17.3l-1.4 1.4m13.4 0-1.4-1.4M6.7 6.7 5.3 5.3"/></svg>
             <svg class="moon-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15.4A8.3 8.3 0 0 1 8.6 4a8.3 8.3 0 1 0 11.4 11.4Z"/></svg>
+          </button>
+          <button id="open-folder-button" class="icon-button" title="Open folder" aria-label="Open folder">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 18.5V6.5a1 1 0 0 1 1-1h4.5l1.7 2h8.3a1 1 0 0 1 1 1v1H6.5m-3 9 2.3-8h13.7l-2.3 8H3.5Z"/></svg>
           </button>
           <button id="open-button" title="Open Markdown (⌘O)">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 18.5 5.6 9h13.8l-2.1 9.5H3.5Zm2.7-12h4l1.7 2.5H19V7.5a1 1 0 0 0-1-1h-6l-1.7-2.2H7.2a1 1 0 0 0-1 1v1.2Z"/></svg>
@@ -62,23 +68,31 @@
         <p>Leave a blank line between paragraphs. Watch the preview as you type. Use ⌘B for bold, ⌘I for italic, and ⌘K for links.</p>
       </dialog>
 
-      <main class="workspace">
-        <section class="pane editor-pane" aria-label="Markdown editor">
-          <div class="pane-header">
-            <span>MARKDOWN</span>
-            <span id="document-stats">0 words</span>
+      <div class="content">
+        <aside id="file-tree-panel" class="file-tree-panel" aria-label="Markdown files" hidden>
+          <div class="file-tree-header">
+            <span id="file-tree-title">FILES</span>
           </div>
-          <textarea id="editor" autofocus spellcheck="true" aria-label="Markdown text" placeholder="# Start writing…"></textarea>
-        </section>
-        <div class="divider" aria-hidden="true"></div>
-        <section class="pane preview-pane" aria-label="Markdown preview">
-          <div class="pane-header">
-            <span>PREVIEW</span>
-            <span class="live-indicator"><i></i> LIVE</span>
-          </div>
-          <article id="preview" class="markdown-body"></article>
-        </section>
-      </main>
+          <div id="file-tree" class="file-tree" role="tree"></div>
+        </aside>
+        <main class="workspace">
+          <section class="pane editor-pane" aria-label="Markdown editor">
+            <div class="pane-header">
+              <span>MARKDOWN</span>
+              <span id="document-stats">0 words</span>
+            </div>
+            <textarea id="editor" autofocus spellcheck="true" aria-label="Markdown text" placeholder="# Start writing…"></textarea>
+          </section>
+          <div class="divider" aria-hidden="true"></div>
+          <section class="pane preview-pane" aria-label="Markdown preview">
+            <div class="pane-header">
+              <span>PREVIEW</span>
+              <span class="live-indicator"><i></i> LIVE</span>
+            </div>
+            <article id="preview" class="markdown-body"></article>
+          </section>
+        </main>
+      </div>
 
       <footer class="zoom-bar" aria-label="Editor controls">
         <button id="formatting-toggle" aria-controls="formatting-bar" aria-expanded="false" title="Show formatting toolbar">Formatting</button>

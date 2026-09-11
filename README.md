@@ -7,6 +7,7 @@ Markduck is a focused Markdown editor for macOS, built with Rust and Tauri. It c
 ## Features
 
 - Side-by-side Markdown editor and live preview
+- Folder tree view listing all Markdown files in a folder and its subfolders
 - GitHub Flavored Markdown, including tables and task lists
 - Sanitized preview output
 - Synchronized editor and preview scrolling
@@ -31,6 +32,8 @@ Scrolling either pane moves the other to the same relative position. Editing or 
 The sun/moon button in the title bar switches between light and dark themes. Markduck stores the selected theme locally and restores it at the next launch.
 
 Opening another Markdown file from Finder creates a separate Markduck window. macOS may suppress a second request for a file that is already open.
+
+Use the folder icon in the title bar to open a folder. Every Markdown file in that folder and its subfolders is listed in a tree view; click a file to open it for editing and preview. Use the panel icon to show or hide the tree view. Markduck remembers the last folder you opened and whether the panel is visible.
 
 ## Install
 
