@@ -205,6 +205,112 @@ fn read_markdown_tree(path: String) -> Result<FolderTree, String> {
     Ok(FolderTree { name, path, children })
 }
 
+const MAX_MATCHES_PER_FILE: usize = 40;
+const MAX_SNIPPET_CHARS: usize = 160;
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SearchMatch {
+    line: usize,
+    text: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SearchFileResult {
+    path: String,
+    name: String,
+    matches: Vec<SearchMatch>,
+}
+
+fn truncate_snippet(line: &str) -> String {
+    let trimmed = line.trim();
+    if trimmed.chars().count() > MAX_SNIPPET_CHARS {
+        let truncated: String = trimmed.chars().take(MAX_SNIPPET_CHARS).collect();
+        format!("{truncated}…")
+    } else {
+        trimmed.to_owned()
+    }
+}
+
+fn search_file(path: &std::path::Path, name: &str, query_lower: &str) -> Option<SearchFileResult> {
+    let name_matches = name.to_lowercase().contains(query_lower);
+    let content = std::fs::read_to_string(path).ok()?;
+    let mut matches = Vec::new();
+    for (index, line) in content.lines().enumerate() {
+        if matches.len() >= MAX_MATCHES_PER_FILE {
+            break;
+        }
+        if line.to_lowercase().contains(query_lower) {
+            matches.push(SearchMatch {
+                line: index + 1,
+                text: truncate_snippet(line),
+            });
+        }
+    }
+    if matches.is_empty() && !name_matches {
+        return None;
+    }
+    Some(SearchFileResult {
+        path: path.to_string_lossy().into_owned(),
+        name: name.to_owned(),
+        matches,
+    })
+}
+
+fn collect_search_results(
+    dir: &std::path::Path,
+    query_lower: &str,
+    depth: u8,
+    results: &mut Vec<SearchFileResult>,
+) -> Result<(), String> {
+    if depth > MAX_TREE_DEPTH {
+        return Ok(());
+    }
+
+    let entries =
+        std::fs::read_dir(dir).map_err(|error| format!("Could not read folder: {error}"))?;
+
+    for entry in entries.filter_map(|entry| entry.ok()) {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name.starts_with('.') {
+            continue;
+        }
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        let path = entry.path();
+
+        if file_type.is_dir() {
+            if SKIPPED_DIR_NAMES.contains(&name.as_str()) {
+                continue;
+            }
+            collect_search_results(&path, query_lower, depth + 1, results)?;
+        } else if file_type.is_file() && is_markdown_extension(&path) {
+            if let Some(result) = search_file(&path, &name, query_lower) {
+                results.push(result);
+            }
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn search_markdown_files(path: String, query: String) -> Result<Vec<SearchFileResult>, String> {
+    let dir = PathBuf::from(&path);
+    if !dir.is_dir() {
+        return Err("That folder could not be found".into());
+    }
+    let query_lower = query.trim().to_lowercase();
+    if query_lower.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut results = Vec::new();
+    collect_search_results(&dir, &query_lower, 0, &mut results)?;
+    results.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    Ok(results)
+}
+
 #[tauri::command]
 fn pick_file() -> Result<Option<Document>, String> {
     rfd::FileDialog::new()
@@ -282,7 +388,8 @@ pub fn run() {
             set_document_dirty,
             confirm_discard_for_open,
             pick_folder,
-            read_markdown_tree
+            read_markdown_tree,
+            search_markdown_files
         ])
         .setup(|app| {
             #[cfg(target_os = "macos")]

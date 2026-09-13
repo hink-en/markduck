@@ -43,6 +43,12 @@ const fileTreePanel = document.querySelector("#file-tree-panel");
 const fileTreeTitle = document.querySelector("#file-tree-title");
 const fileTree = document.querySelector("#file-tree");
 const openFolderButton = document.querySelector("#open-folder-button");
+const fileSearchBar = document.querySelector("#file-search-bar");
+const fileSearchInput = document.querySelector("#file-search-input");
+const fileSearchClose = document.querySelector("#file-search-close");
+
+let currentTree = null;
+let currentFolderPath = null;
 
 function setSidebarVisible(visible) {
   fileTreePanel.hidden = !visible;
@@ -110,6 +116,7 @@ function renderEmptyTreeState() {
 }
 
 function renderTree(tree) {
+  currentTree = tree;
   fileTreeTitle.textContent = tree.name;
   fileTree.innerHTML = "";
   if (!tree.children.length) {
@@ -125,7 +132,9 @@ function renderTree(tree) {
 
 async function loadFolderTree(path) {
   const tree = await invoke("read_markdown_tree", { path });
+  currentFolderPath = path;
   localStorage.setItem("hinkmd-folder-path", path);
+  closeSidebarSearch();
   renderTree(tree);
 }
 
@@ -147,6 +156,139 @@ const storedFolderPath = localStorage.getItem("hinkmd-folder-path");
 if (storedFolderPath) {
   loadFolderTree(storedFolderPath).catch(() => localStorage.removeItem("hinkmd-folder-path"));
 }
+
+function highlightSnippet(text, query) {
+  const button = document.createElement("span");
+  const lower = text.toLowerCase();
+  const needle = query.toLowerCase();
+  const index = lower.indexOf(needle);
+  if (index < 0 || !needle) {
+    button.textContent = text;
+    return button;
+  }
+  button.append(
+    document.createTextNode(text.slice(0, index)),
+    Object.assign(document.createElement("mark"), { textContent: text.slice(index, index + query.length) }),
+    document.createTextNode(text.slice(index + query.length)),
+  );
+  return button;
+}
+
+function relativeToFolder(path) {
+  if (!currentFolderPath) return path;
+  const trimmed = path.startsWith(currentFolderPath) ? path.slice(currentFolderPath.length) : path;
+  return trimmed.replace(/^[\\/]/, "");
+}
+
+async function openSearchMatch(path, lineNumber, query) {
+  await openDocument(path);
+  if (currentPath === path) revealMatchInEditor(lineNumber, query);
+}
+
+function renderSearchResults(results, query) {
+  fileTree.innerHTML = "";
+  if (!results.length) {
+    const empty = document.createElement("p");
+    empty.className = "tree-empty";
+    empty.textContent = "No matches found.";
+    fileTree.appendChild(empty);
+    return;
+  }
+  const list = document.createElement("ul");
+  list.className = "search-results";
+  for (const file of results) {
+    const item = document.createElement("li");
+    item.className = "search-result-file";
+
+    const header = document.createElement("button");
+    header.type = "button";
+    header.className = "search-result-file-header";
+    const nameRow = document.createElement("span");
+    nameRow.className = "search-result-file-name";
+    nameRow.appendChild(document.createTextNode(file.name));
+    const pathRow = document.createElement("span");
+    pathRow.className = "search-result-file-path";
+    const relative = relativeToFolder(file.path);
+    pathRow.textContent = relative === file.name ? "" : relative;
+    header.append(nameRow, pathRow);
+    header.addEventListener("click", () => {
+      if (file.matches.length) item.classList.toggle("collapsed");
+      else openDocument(file.path);
+    });
+    item.appendChild(header);
+
+    if (file.matches.length) {
+      const matchList = document.createElement("ul");
+      matchList.className = "search-result-matches";
+      for (const match of file.matches) {
+        const matchItem = document.createElement("li");
+        const matchButton = document.createElement("button");
+        matchButton.type = "button";
+        matchButton.className = "search-result-match";
+        matchButton.title = `Line ${match.line}`;
+        matchButton.appendChild(highlightSnippet(match.text, query));
+        matchButton.addEventListener("click", () => openSearchMatch(file.path, match.line, query));
+        matchItem.appendChild(matchButton);
+        matchList.appendChild(matchItem);
+      }
+      item.appendChild(matchList);
+    }
+
+    list.appendChild(item);
+  }
+  fileTree.appendChild(list);
+}
+
+let searchTimer;
+let searchRequestId = 0;
+
+async function runSidebarSearch(query) {
+  if (!currentFolderPath) return;
+  if (!query.trim()) {
+    if (currentTree) renderTree(currentTree);
+    return;
+  }
+  const requestId = ++searchRequestId;
+  try {
+    const results = await invoke("search_markdown_files", { path: currentFolderPath, query });
+    if (requestId === searchRequestId) renderSearchResults(results, query);
+  } catch (error) {
+    showToast(String(error), "error");
+  }
+}
+
+function openSidebarSearch() {
+  if (!currentFolderPath) {
+    showToast("Open a folder first", "error");
+    return;
+  }
+  setSidebarVisible(true);
+  fileSearchBar.hidden = false;
+  fileSearchInput.focus();
+  fileSearchInput.select();
+}
+
+function closeSidebarSearch() {
+  fileSearchBar.hidden = true;
+  fileSearchInput.value = "";
+  if (currentTree) renderTree(currentTree);
+}
+
+fileSearchInput.addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => runSidebarSearch(fileSearchInput.value), 150);
+});
+fileSearchInput.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    event.preventDefault();
+    closeSidebarSearch();
+    editor.focus();
+  }
+});
+fileSearchClose.addEventListener("click", () => {
+  closeSidebarSearch();
+  editor.focus();
+});
 
 const formattingToggle = document.querySelector("#formatting-toggle");
 const formattingBar = document.querySelector("#formatting-bar");
@@ -298,6 +440,102 @@ function syncPreviewToCaret() {
   }
 }
 
+const editorFindBar = document.querySelector("#editor-find-bar");
+const editorFindInput = document.querySelector("#editor-find-input");
+const editorFindCount = document.querySelector("#editor-find-count");
+const editorFindPrev = document.querySelector("#editor-find-prev");
+const editorFindNext = document.querySelector("#editor-find-next");
+const editorFindClose = document.querySelector("#editor-find-close");
+
+let findMatches = [];
+let findIndex = -1;
+
+function updateFindCount() {
+  editorFindCount.textContent = findMatches.length ? `${findIndex + 1}/${findMatches.length}` : "0/0";
+}
+
+function updateFindMatches() {
+  const query = editorFindInput.value;
+  findMatches = [];
+  if (query) {
+    const content = editor.value.toLowerCase();
+    const needle = query.toLowerCase();
+    let index = content.indexOf(needle);
+    while (index !== -1) {
+      findMatches.push(index);
+      index = content.indexOf(needle, index + needle.length);
+    }
+  }
+  findIndex = findMatches.length ? 0 : -1;
+  updateFindCount();
+}
+
+function selectFindMatch(index) {
+  if (!findMatches.length) return;
+  findIndex = ((index % findMatches.length) + findMatches.length) % findMatches.length;
+  const start = findMatches[findIndex];
+  const end = start + editorFindInput.value.length;
+  editor.setSelectionRange(start, end);
+  const totalLines = Math.max(1, editor.value.split("\n").length - 1);
+  const line = editor.value.slice(0, start).split("\n").length - 1;
+  scrollPaneTo(editor, editor.scrollHeight * (line / totalLines) - editor.clientHeight / 3);
+  updateFindCount();
+}
+
+function openEditorFind() {
+  editorFindBar.hidden = false;
+  const selected = editor.value.slice(editor.selectionStart, editor.selectionEnd);
+  if (selected && !selected.includes("\n")) editorFindInput.value = selected;
+  updateFindMatches();
+  if (findMatches.length) selectFindMatch(0);
+  editorFindInput.focus();
+  editorFindInput.select();
+}
+
+function closeEditorFind() {
+  if (editorFindBar.hidden) return;
+  editorFindBar.hidden = true;
+  findMatches = [];
+  findIndex = -1;
+}
+
+editorFindInput.addEventListener("input", () => {
+  updateFindMatches();
+  if (findMatches.length) selectFindMatch(0);
+});
+editorFindInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    selectFindMatch(findIndex + (event.shiftKey ? -1 : 1));
+  } else if (event.key === "Escape") {
+    event.preventDefault();
+    closeEditorFind();
+    editor.focus();
+  }
+});
+editorFindPrev.addEventListener("click", () => selectFindMatch(findIndex - 1));
+editorFindNext.addEventListener("click", () => selectFindMatch(findIndex + 1));
+editorFindClose.addEventListener("click", () => {
+  closeEditorFind();
+  editor.focus();
+});
+
+function revealMatchInEditor(lineNumber, query) {
+  const lines = editor.value.split("\n");
+  let offset = 0;
+  for (let i = 0; i < lineNumber - 1 && i < lines.length; i++) {
+    offset += lines[i].length + 1;
+  }
+  const lineText = lines[lineNumber - 1] ?? "";
+  const withinLine = Math.max(0, lineText.toLowerCase().indexOf(query.toLowerCase()));
+  const start = offset + withinLine;
+  editor.focus();
+  editor.setSelectionRange(start, start + query.length);
+  const totalLines = Math.max(1, editor.value.split("\n").length - 1);
+  scrollPaneTo(editor, editor.scrollHeight * ((lineNumber - 1) / totalLines) - editor.clientHeight / 3);
+  syncPreviewToCaret();
+}
+
 function loadDocument(document) {
   currentPath = document.path;
   savedContent = document.content;
@@ -312,6 +550,7 @@ function loadDocument(document) {
   renderPreview(document.content);
   editor.focus();
   highlightActiveFile();
+  closeEditorFind();
 }
 
 async function openDocument(path = null) {
@@ -348,6 +587,7 @@ async function saveDocument() {
 editor.addEventListener("input", () => {
   updateDocument();
   syncPreviewToCaret();
+  if (!editorFindBar.hidden) updateFindMatches();
 });
 editor.addEventListener("scroll", () => syncPaneScroll(editor, preview), { passive: true });
 preview.addEventListener("scroll", () => syncPaneScroll(preview, editor), { passive: true });
@@ -406,6 +646,11 @@ document.addEventListener("keydown", (event) => {
   if (event.key.toLowerCase() === "o") {
     event.preventDefault();
     openDocument();
+  }
+  if (event.key.toLowerCase() === "f") {
+    event.preventDefault();
+    if (event.shiftKey) openSidebarSearch();
+    else openEditorFind();
   }
 });
 
