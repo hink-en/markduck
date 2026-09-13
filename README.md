@@ -7,6 +7,8 @@ Markduck is a focused Markdown editor for macOS, built with Rust and Tauri. It c
 ## Features
 
 - Side-by-side Markdown editor and live preview
+- Folder tree view listing all Markdown files in a folder and its subfolders
+- Find in the current document, and search across every Markdown file in the open folder
 - GitHub Flavored Markdown, including tables and task lists
 - Sanitized preview output
 - Synchronized editor and preview scrolling
@@ -31,6 +33,10 @@ Scrolling either pane moves the other to the same relative position. Editing or 
 The sun/moon button in the title bar switches between light and dark themes. Markduck stores the selected theme locally and restores it at the next launch.
 
 Opening another Markdown file from Finder creates a separate Markduck window. macOS may suppress a second request for a file that is already open.
+
+Use the folder icon in the title bar to open a folder. Every Markdown file in that folder and its subfolders is listed in a tree view; click a file to open it for editing and preview. Use the panel icon to show or hide the tree view. Markduck remembers the last folder you opened and whether the panel is visible.
+
+Press `Command-F` to find text in the current document. Type a search term to jump to the first match; press Return or the down arrow for the next match, Shift-Return or the up arrow for the previous one, and Escape to close. Press `Command-Shift-F` to search every Markdown file in the open folder — matching files appear in the panel with the matching lines underneath; click a line to open that file and jump straight to it.
 
 ## Install
 
@@ -86,6 +92,8 @@ To make Markduck the default application for Markdown documents:
 | --- | --- |
 | `Command-O` | Open a Markdown file in the current window |
 | `Command-S` | Save the current document |
+| `Command-F` | Find text in the current document |
+| `Command-Shift-F` | Search Markdown files in the open folder |
 | `Command-Plus` / `Command-Minus` | Increase / decrease UI text size |
 | `Command-0` | Reset text size to 100% |
 | `Tab` | Insert two spaces in the editor |
