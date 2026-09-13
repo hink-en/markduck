@@ -100,7 +100,10 @@
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
               </button>
             </div>
-            <textarea id="editor" autofocus spellcheck="true" aria-label="Markdown text" placeholder="# Start writing…"></textarea>
+            <div class="editor-content">
+              <div id="editor-highlights" aria-hidden="true"></div>
+              <textarea id="editor" autofocus spellcheck="true" aria-label="Markdown text" placeholder="# Start writing…"></textarea>
+            </div>
           </section>
           <div class="divider" aria-hidden="true"></div>
           <section class="pane preview-pane" aria-label="Markdown preview">

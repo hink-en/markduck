@@ -353,7 +353,9 @@ button svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke
 .live-indicator { color: var(--live-label); display: flex; align-items: center; gap: 6px; }
 .live-indicator i { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px rgba(216,255,114,.55); }
 
-#editor {
+.editor-content { position: relative; min-width: 0; min-height: 0; }
+
+#editor, #editor-highlights {
   width: 100%;
   height: 100%;
   padding: 34px clamp(26px, 5vw, 72px) 100px;
@@ -368,6 +370,26 @@ button svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke
   line-height: 1.85;
   user-select: text;
   tab-size: 2;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+#editor { position: relative; display: block; }
+#editor-highlights {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  color: transparent;
+}
+#editor-highlights mark {
+  color: transparent;
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 2px;
+}
+#editor-highlights mark.current-match {
+  background: color-mix(in srgb, var(--accent) 60%, transparent);
+  outline: 1px solid var(--accent);
 }
 
 #editor::placeholder { color: var(--placeholder); }
@@ -428,7 +450,7 @@ button svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke
   .actions button { padding: 0 9px; }
   .workspace { grid-template-columns: 1fr; grid-template-rows: 1fr 1px 1fr; }
   .pane { min-height: 0; }
-  #editor, #preview { padding: 24px 24px 60px; }
+  #editor, #editor-highlights, #preview { padding: 24px 24px 60px; }
   .content { position: relative; }
   .file-tree-panel { position: absolute; inset: 0; z-index: 4; width: auto; }
 }

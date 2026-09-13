@@ -364,6 +364,7 @@ function renderPreview(content) {
 
 function updateDocument() {
   const content = editor.value;
+  if (!editorFindBar.hidden) updateFindMatches();
 
   const words = content.trim() ? content.trim().split(/\s+/).length : 0;
   const readingTime = Math.max(1, Math.ceil(words / 220));
@@ -446,9 +447,38 @@ const editorFindCount = document.querySelector("#editor-find-count");
 const editorFindPrev = document.querySelector("#editor-find-prev");
 const editorFindNext = document.querySelector("#editor-find-next");
 const editorFindClose = document.querySelector("#editor-find-close");
+const editorHighlights = document.querySelector("#editor-highlights");
 
 let findMatches = [];
 let findIndex = -1;
+
+function syncFindHighlights() {
+  editorHighlights.style.width = `${editor.clientWidth}px`;
+  editorHighlights.style.height = `${editor.clientHeight}px`;
+  editorHighlights.scrollTop = editor.scrollTop;
+  editorHighlights.scrollLeft = editor.scrollLeft;
+}
+
+function renderFindHighlights() {
+  const fragment = document.createDocumentFragment();
+  let offset = 0;
+  for (const [index, start] of findMatches.entries()) {
+    fragment.append(document.createTextNode(editor.value.slice(offset, start)));
+    const mark = document.createElement("mark");
+    offset = start + editorFindInput.value.length;
+    mark.textContent = editor.value.slice(start, offset);
+    mark.classList.toggle("current-match", index === findIndex);
+    fragment.append(mark);
+  }
+  if (findMatches.length) {
+    // The extra newline gives a trailing empty line the same height as the textarea.
+    fragment.append(document.createTextNode(editor.value.slice(offset) + "\n"));
+  }
+  editorHighlights.replaceChildren(fragment);
+  syncFindHighlights();
+}
+
+new ResizeObserver(syncFindHighlights).observe(editor);
 
 function updateFindCount() {
   editorFindCount.textContent = findMatches.length ? `${findIndex + 1}/${findMatches.length}` : "0/0";
@@ -468,6 +498,7 @@ function updateFindMatches() {
   }
   findIndex = findMatches.length ? 0 : -1;
   updateFindCount();
+  renderFindHighlights();
 }
 
 function selectFindMatch(index) {
@@ -476,9 +507,11 @@ function selectFindMatch(index) {
   const start = findMatches[findIndex];
   const end = start + editorFindInput.value.length;
   editor.setSelectionRange(start, end);
-  const totalLines = Math.max(1, editor.value.split("\n").length - 1);
-  const line = editor.value.slice(0, start).split("\n").length - 1;
-  scrollPaneTo(editor, editor.scrollHeight * (line / totalLines) - editor.clientHeight / 3);
+  editorHighlights.querySelector(".current-match")?.classList.remove("current-match");
+  const activeMark = editorHighlights.querySelectorAll("mark")[findIndex];
+  activeMark.classList.add("current-match");
+  scrollPaneTo(editor, activeMark.offsetTop - editor.clientHeight / 3);
+  syncFindHighlights();
   updateFindCount();
 }
 
@@ -497,6 +530,7 @@ function closeEditorFind() {
   editorFindBar.hidden = true;
   findMatches = [];
   findIndex = -1;
+  renderFindHighlights();
 }
 
 editorFindInput.addEventListener("input", () => {
@@ -587,9 +621,11 @@ async function saveDocument() {
 editor.addEventListener("input", () => {
   updateDocument();
   syncPreviewToCaret();
-  if (!editorFindBar.hidden) updateFindMatches();
 });
-editor.addEventListener("scroll", () => syncPaneScroll(editor, preview), { passive: true });
+editor.addEventListener("scroll", () => {
+  syncFindHighlights();
+  syncPaneScroll(editor, preview);
+}, { passive: true });
 preview.addEventListener("scroll", () => syncPaneScroll(preview, editor), { passive: true });
 editor.addEventListener("click", syncPreviewToCaret);
 editor.addEventListener("keyup", syncPreviewToCaret);
